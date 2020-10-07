@@ -44,7 +44,7 @@ object FinagleSpec extends DefaultRunnableSpec {
                 Contexts.local.get(testingLocalContextKey)
               }
             }
-          })(isSome(equalTo("b")))
+          })(isSome(equalTo("a")))
         },
       ),
     )
