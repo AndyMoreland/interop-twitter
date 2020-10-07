@@ -22,6 +22,7 @@ import zio.{ Runtime, Task, UIO, ZIO }
 
 package object twitter {
   implicit class TaskObjOps(private val obj: Task.type) extends AnyVal {
+
     final def fromTwitterFuture[A](future: => Future[A]): Task[A] =
       toTask(Task(future))
 
