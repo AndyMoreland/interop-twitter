@@ -7,6 +7,7 @@ import zio.{FiberRef, ZIO}
 import zio.test.Assertion._
 import zio.test._
 import zio.interop.twitter._
+import zio.interop.twittercontext.TwitterContext
 
 object FinagleSpec extends DefaultRunnableSpec {
   val runtime = runner.runtime
@@ -43,7 +44,7 @@ object FinagleSpec extends DefaultRunnableSpec {
               Future {
                 Contexts.local.get(testingLocalContextKey)
               }
-            }
+            }.provideLayer(TwitterContext.makeRootContext)
           })(isSome(equalTo("a")))
         },
       ),

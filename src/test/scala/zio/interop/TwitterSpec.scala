@@ -2,13 +2,14 @@ package zio.interop
 
 import java.util.concurrent.atomic.AtomicInteger
 
-import com.twitter.util.{ Await, Future, Promise }
-import zio.{ Task, ZIO }
+import com.twitter.util.{Await, Future, Promise}
+import zio.{Task, ZIO}
 import zio.interop.twitter._
+import zio.interop.twittercontext.TwitterContext
 import zio.test._
 import zio.test.Assertion._
 
-import scala.util.{ Failure, Success, Try }
+import scala.util.{Failure, Success, Try}
 
 object TwitterSpec extends DefaultRunnableSpec {
   val runtime = runner.runtime
@@ -19,14 +20,14 @@ object TwitterSpec extends DefaultRunnableSpec {
         testM("return failing `Task` if future failed.") {
           val error  = new Exception
           def future = Future.exception[Int](error)
-          val task   = Task.fromTwitterFuture(future).unit
+          val task   = Task.fromTwitterFuture(future).provideLayer(TwitterContext.makeRootContext).unit
 
           assertM(task.either)(isLeft(equalTo(error)))
         },
         testM("return successful `Task` if future succeeded.") {
           val value  = 10
           def future = Future.value(value)
-          val task   = Task.fromTwitterFuture(future).option
+          val task   = Task.fromTwitterFuture(future).provideLayer(TwitterContext.makeRootContext).option
 
           assertM(task)(isSome(equalTo(value)))
         },
@@ -41,7 +42,7 @@ object TwitterSpec extends DefaultRunnableSpec {
 
           val task =
             (for {
-              fiber <- Task.fromTwitterFuture(future).fork
+              fiber <- Task.fromTwitterFuture(future).provideLayer(TwitterContext.makeRootContext).fork
               _     <- fiber.interrupt
               _     <- Task.effect(promise.setDone())
               a     <- fiber.await

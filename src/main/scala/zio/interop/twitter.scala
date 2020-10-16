@@ -16,31 +16,41 @@
 
 package zio.interop
 
-import com.twitter.util.{ Future, FutureCancelledException, Promise, Return, Throw }
-import zio.Cause
-import zio.{ Runtime, Task, UIO, ZIO }
+import com.twitter.util._
+import zio.interop.twittercontext.TwitterContext
+import zio.{Cause, Runtime, Task, UIO, ZIO}
 
 package object twitter {
-  implicit class TaskObjOps(private val obj: Task.type) extends AnyVal {
-
-    final def fromTwitterFuture[A](future: => Future[A]): Task[A] =
-      toTask(Task(future))
+  implicit class ZioObjOps(private val obj: Task.type) extends AnyVal {
+    final def fromTwitterFuture[A](future: => Future[A]): ZIO[TwitterContext, Throwable, A] = {
+      ZIO.service[TwitterContext.Service].flatMap { service =>
+        for {
+          current <- service.context.get
+            result <- toTask(Task {
+              Local.restore(current)
+              future
+            })
+        } yield result
+      }
+    }
 
     @deprecated("Use fromTwitterFuture[A](future: => Future[A]) instead", "v20.6.0.0-RC2")
     final def fromTwitterFuture[A](future: Task[Future[A]]): Task[A] =
       toTask(future)
 
     private def toTask[A](future: Task[Future[A]]): Task[A] =
-      Task.uninterruptibleMask { restore =>
-        future.flatMap { f =>
-          restore(Task.effectAsync { cb: (Task[A] => Unit) =>
-            val _ = f.respond {
-              case Return(a) => cb(Task.succeed(a))
-              case Throw(e)  => cb(Task.fail(e))
-            }
-          }).onInterrupt(UIO(f.raise(new FutureCancelledException)))
-        }
-      }
+       for {
+         result <- Task.uninterruptibleMask { restore =>
+           future.flatMap { f =>
+             restore(Task.effectAsync { cb: (Task[A] => Unit) =>
+               val _ = f.respond {
+                 case Return(a) => cb(Task.succeed(a))
+                 case Throw(e)  => cb(Task.fail(e))
+               }
+             }).onInterrupt(UIO(f.raise(new FutureCancelledException)))
+           }
+         }
+       } yield result
   }
 
   implicit class RuntimeOps[R](private val runtime: Runtime[R]) extends AnyVal {
