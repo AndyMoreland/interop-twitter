@@ -47,6 +47,17 @@ object FinagleSpec extends DefaultRunnableSpec {
             }.provideLayer(TwitterContext.makeRootContext)
           })(isSome(equalTo("a")))
         },
+        testM("should work when chaining twitter future calls") {
+          assertM(Contexts.local.let(testingLocalContextKey, "b") {
+            zio.Task.fromTwitterFuture {
+              Future {
+                0 // do nothing
+              }.map {
+                _ => Contexts.local.get(testingLocalContextKey)
+              }
+            }.provideLayer(TwitterContext.makeRootContext)
+          })(isSome(equalTo("b")))
+        }
       ),
     )
 }
